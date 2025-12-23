@@ -27,109 +27,61 @@ from settings import (
     add_user_to_banned,
 )
 
-
-
-
-
-
-
-async def get_key(user_id: int) -> dict:
+# Функция получения данных из API
+async def get_key(userid: int) -> dict:
     async with aiohttp.ClientSession() as session:
-        json_data = {
+        jsondata = {
             "public_key": PUBLIC_KEY,
-            "user_tg_id": user_id,
+            "user_tg_id": userid,
         }
-
         headers = {"User-Agent": "chuhan/1.0"}
-
-        async with session.post(
-            "https://vpn-telegram.com/api/v1/key-activate/free-key",
-            headers=headers,
-            json=json_data,
-            timeout=aiohttp.ClientTimeout(total=10),
-        ) as response:
-
-            if response.status != 200:
-                error_text = await response.text()
-                logger.error(f"API error {response.status}: {error_text}")
-                return {"error": f"API error: {response.status}"}
-
-            return await response.json()
-
-
-async def check_key(config_url: str) -> dict:
-    headers = {
-        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:145.0) Gecko/20100101 Firefox/145.0"
-    }
-
-    result = {"used_gb": None, "expires": None}
-
-    async with aiohttp.ClientSession() as session:
         try:
-            async with session.get(
-                config_url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)
+            async with session.post(
+                "https://vpn-telegram.com/api/v1/key-activate/free-key",
+                headers=headers,
+                json=jsondata,
+                timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
                 if response.status != 200:
-                    error_text = await response.text()
-                    logger.error(f"API error {response.status}: {error_text}")
-                    return result
-
-                html = await response.text()
-                soup = BeautifulSoup(html, "html.parser")
-
-                used_label = soup.find(
-                    lambda tag: tag.name == "span" and "Использовано:" in tag.text
-                )
-                if used_label:
-                    used_text = used_label.find_next("span").text.strip()
-                    match = re.search(r"([\d.]+)", used_text)
-                    if match:
-                        result["used_gb"] = float(match.group(1))
-
-                expires_label = soup.find(
-                    lambda tag: tag.name == "span" and "Действует до:" in tag.text
-                )
-                if expires_label:
-                    expires_value = expires_label.find_next("span").text.strip()
-                    result["expires"] = expires_value
-
-                return result
-
+                    return {"error": f"API error {response.status}"}
+                return await response.json()
         except Exception as e:
-            logger.error(f"Request failed: {e}")
-            return result
+            return {"error": str(e)}
 
+# НОВАЯ ФУНКЦИЯ: Извлечение vless/vmess ключа со страницы
+async def get_raw_key(config_url: str) -> str:
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.get(config_url, headers=headers, timeout=10) as response:
+                if response.status == 200:
+                    html = await response.text()
+                    # Ищем прямую ссылку на конфиг (vless, vmess, trojan или ss)
+                    match = re.search(r'(vless|vmess|ss|trojan)://[^\s"\'<>]+', html)
+                    if match:
+                        return match.group(0)
+        except Exception as e:
+            logger.error(f"Ошибка парсинга ключа: {e}")
+    return None
 
+# Основной хендлер выдачи ключа
 async def parse_key(message: types.Message):
     lang_code = message.from_user.language_code or "en"
     generation_text = get_text(lang_code, "generation")
-    username = message.from_user.username
     user_id = message.from_user.id
     msg = await message.answer(generation_text)
 
-    # --- Лимит ключей на пользователя (1 в день) ---
+    # --- Проверка лимитов (1 ключ в день) ---
     limits = await get_user_limits(DATA_FILE)
     today = datetime.now().strftime("%Y-%m-%d")
     user_info = limits.get(str(user_id), {"date": today, "count": 0, "banned": False})
 
-    # Уже забанен за спам ключами
     if user_info.get("banned"):
-        error_text = get_text(
-            lang_code,
-            "error",
-            error_msg="вы заблокированы за частые запросы ключей",
-        )
-        await msg.edit_text(error_text, parse_mode="HTML")
+        await msg.edit_text(get_text(lang_code, "error", error_msg="вы заблокированы"), parse_mode="HTML")
         return
 
-    # В этот день уже получил 1 ключ
     if user_info.get("date") == today and user_info.get("count", 0) >= 1:
-        limit_text = get_text(
-            lang_code,
-            "error",
-            error_msg="лимит ключей на сегодня исчерпан",
-        )
-        await msg.edit_text(limit_text, parse_mode="HTML")
+        await msg.edit_text(get_text(lang_code, "error", error_msg="лимит на сегодня исчерпан"), parse_mode="HTML")
         return
 
     try:
@@ -137,66 +89,61 @@ async def parse_key(message: types.Message):
         response_data = await get_key(user_id_for_api)
 
         if "error" in response_data:
-            error_text = get_text(lang_code, "error", error_msg=response_data["error"])
-            await msg.edit_text(error_text, parse_mode="HTML")
+            await msg.edit_text(get_text(lang_code, "error", error_msg=response_data["error"]), parse_mode="HTML")
             return
 
         if response_data.get("result"):
             timestamp = response_data["data"]["finish_at"]
-            dt = datetime.fromtimestamp(timestamp)
-            date = dt.strftime("%d.%m.%Y, %H:%M")
-
+            date = datetime.fromtimestamp(timestamp).strftime("%d.%m.%Y, %H:%M")
             vpn_key = response_data["data"]["key"]
             traffic = response_data["data"]["traffic_limit_gb"]
             config_url = f"https://vpn-telegram.com/config/{vpn_key}"
 
-            result_text = get_text(
-                lang_code, "key", config_url=config_url, date=date, traffic=traffic
-            )
+            # --- Извлекаем "сырой" ключ для v2rayNG ---
+            raw_key = await get_raw_key(config_url)
+
+            if raw_key:
+                result_text = (
+                    f"✅ <b>Ваш VPN готов!</b>\n\n"
+                    f"<b>Для v2rayNG / Nekobox (нажми, чтобы скопировать):</b>\n"
+                    f"de>{raw_key}</code>\n\n"
+                    f"<b>Для Hiddify или настройки в браузере:</b>\n"
+                    f"{config_url}\n\n"
+                    f"📅 Действует до: {date}\n"
+                    f"📊 Трафик: {traffic} ГБ"
+                )
+            else:
+                result_text = get_text(lang_code, "key", config_url=config_url, date=date, traffic=traffic)
 
             await msg.edit_text(result_text, parse_mode="HTML")
             await send_logs(message=message, log="key sent")
 
-            # Глобальный счётчик всех выданных ключей
+            # --- Обновляем глобальный счетчик ---
             async with counter_lock:
                 current_keys = await get_keys_count(DATA_FILE)
-                new_keys = current_keys + 1
-                await write_keys_count(new_keys, DATA_FILE)
+                await write_keys_count(current_keys + 1, DATA_FILE)
 
-            # --- Обновляем персональный лимит и автобан ---
+            # --- Обновляем лимит пользователя и автобан ---
             limits = await get_user_limits(DATA_FILE)
-            today = datetime.now().strftime("%Y-%m-%d")
-            user_info = limits.get(
-                str(user_id), {"date": today, "count": 0, "banned": False}
-            )
-
+            user_info = limits.get(str(user_id), {"date": today, "count": 0, "banned": False})
+            
             if user_info.get("date") != today:
                 user_info["date"] = today
                 user_info["count"] = 0
-
-            user_info["count"] = user_info.get("count", 0) + 1
-
-            # Автобан, если за день больше 3 успешных выдач
-            if user_info["count"] > 3:
+            
+            user_info["count"] += 1
+            if user_info["count"] > 3: # Бан, если за день больше 3 успешных ключей
                 user_info["banned"] = True
                 await add_user_to_banned(user_id, DATA_FILE)
-
+            
             limits[str(user_id)] = user_info
             await write_user_limits(limits, DATA_FILE)
 
         else:
             error_msg = response_data.get("message", "unknown error")
-            error_text = get_text(lang_code, "error", error_msg=error_msg)
-            await msg.edit_text(error_text, parse_mode="HTML")
-            await send_logs(message=message, log=f"{error_text}")
-
-    except asyncio.TimeoutError:
-        error_text = get_text(lang_code, "error", error_msg="request timeout")
-        await msg.edit_text(error_text, parse_mode="HTML")
-        await send_logs(message=message, log=f"{error_text}")
+            await msg.edit_text(get_text(lang_code, "error", error_msg=error_msg), parse_mode="HTML")
 
     except Exception as e:
-        error_text = get_text(lang_code, "error", error_msg=str(e))
-        await msg.edit_text(error_text, parse_mode="HTML")
-        await send_logs(message=message, log=f"{error_text}")
+        await msg.edit_text(f"Ошибка: {str(e)}")
+        await send_logs(message=message, log=f"Error: {str(e)}")
 
