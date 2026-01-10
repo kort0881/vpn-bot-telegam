@@ -255,3 +255,28 @@ async def write_subscription_check(enabled: bool) -> bool:
     async with aiofiles.open(DATA_FILE, "w", encoding="utf-8") as f:
         await f.write(json.dumps(data, indent=4, ensure_ascii=False))
     return True
+
+# ===== База пользователей для telega.in =====
+
+async def get_users(filepath: str = DATA_FILE) -> list[int]:
+    try:
+        async with aiofiles.open(filepath, "r", encoding="utf-8") as f:
+            content = await f.read() or "{}"
+        data = json.loads(content)
+        return [int(x) for x in data.get("users", [])]
+    except Exception:
+        return []
+
+
+async def write_users(users: list[int], filepath: str = DATA_FILE) -> bool:
+    try:
+        async with aiofiles.open(filepath, "r", encoding="utf-8") as f:
+            content = await f.read() or "{}"
+        data = json.loads(content)
+        data["users"] = list(set(int(x) for x in users))
+        async with aiofiles.open(filepath, "w", encoding="utf-8") as f:
+            await f.write(json.dumps(data, indent=4, ensure_ascii=False))
+        return True
+    except Exception:
+        return False
+
