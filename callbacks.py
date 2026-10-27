@@ -1,172 +1,70 @@
+"""
+Callback handlers for menus.
+Uses new Database system instead of data.json.
+"""
 from aiogram import Router, types, F
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from config import DATA_FILE
+from config import CHANNEL_ID
+from database import Database
 from logger import send_logs
 from texts import get_text
-from settings import get_keys_count, get_banned_users
-from instruction import (
-    instruction_kb,
-    android_kb,
-    ios_kb,
-    windows_kb,
-    macos_kb,
-    linux_kb,
-)
 
 
 router = Router()
 
 
+def get_db(msg: types.Message) -> Database:
+    return msg.bot.db
+
+
+def main_menu_kb() -> InlineKeyboardBuilder:
+    """Главное меню (28-09-26). Фасад из ДВУХ кнопок, как требует владелец:
+    «МОЙ ДОСТУП» (цепочка получить->инструкция->бонус->работает) и
+    «ПОДДЕРЖАТЬ ПРОЕКТ» (сразу URL на Сбер). Держать синхронно с start_cmd
+    в user_handlers.py — иначе возврат «🏠 В меню» покажет старый вид."""
+    from user_handlers import DONATE_URL
+    kb = InlineKeyboardBuilder()
+    kb.button(text="🔑 МОЙ ДОСТУП", callback_data="my_key")
+    kb.button(text="💳 ПОДДЕРЖАТЬ ПРОЕКТ", url=DONATE_URL)
+    kb.button(text="🔷 Selectel 3 ТБ", callback_data="sel_key")
+    kb.button(text="🛡 TrustTunnel", callback_data="tt_key")
+    kb.adjust(1)
+    return kb
+
+
 @router.callback_query(F.data == "main_menu")
 async def main_menu_handler(callback: types.CallbackQuery):
-    keys = await get_keys_count(DATA_FILE)
-    banned_ids = await get_banned_users(DATA_FILE)
+    db: Database = get_db(callback.message)
+    user_id = callback.from_user.id
 
-    if callback.from_user.id in banned_ids:
-        await callback.message.answer("faq")
+    # Check ban
+    if await db.is_banned(user_id):
+        _bu = await db.get_user(user_id)
+        from ban_text import banned_text
+        await callback.message.answer(banned_text(
+            (_bu or {}).get("unsubscribed_at"), (_bu or {}).get("ban_reason")
+        ))
         await callback.answer()
         return
+
+    keys_count = await db.get_keys_count()
+    lang = callback.from_user.language_code or "ru"
+    name = callback.from_user.first_name or ""
 
     start_text = get_text(
-        callback.from_user.language_code or en,
+        lang,
         "start",
-        name=callback.from_user.first_name or "",
-        keys=keys,
+        name=name,
+        keys=keys_count,
     )
 
-    await callback.message.edit_text(start_text, parse_mode="HTML")
-    await send_logs(message=callback.message, log="callback: bot started")
-    await callback.answer()
-
-
-@router.callback_query(F.data == "instruction_kb")
-async def instruction_handler(callback: types.CallbackQuery):
-    banned_ids = await get_banned_users(DATA_FILE)
-
-    if callback.from_user.id in banned_ids:
-        await callback.message.answer("faq")
-        await callback.answer()
-        return
-
-    instruction_text = get_text(
-        callback.from_user.language_code or "en",
-        "instruction",
-        name=callback.from_user.first_name or "",
-    )
-
-    await callback.message.edit_text(
-        instruction_text, parse_mode="HTML", reply_markup=instruction_kb
-    )
-    await send_logs(message=callback.message, log="callback: looks at the instructions")
-    await callback.answer()
-
-
-@router.callback_query(F.data == "android_kb")
-async def android_handler(callback: types.CallbackQuery):
-    banned_ids = await get_banned_users(DATA_FILE)
-
-    if callback.from_user.id in banned_ids:
-        await callback.message.answer("faq")
-        await callback.answer()
-        return
-
-    text = get_text(
-        callback.from_user.language_code or "en",
-        "android",
-        name=callback.from_user.first_name or "",
-    )
-
-    await callback.message.edit_text(text, reply_markup=android_kb)
-    await send_logs(
-        message=callback.message, log="callback: looks at the instructions for android"
-    )
-    await callback.answer()
-
-
-@router.callback_query(F.data == "ios_kb")
-async def ios_handler(callback: types.CallbackQuery):
-    banned_ids = await get_banned_users(DATA_FILE)
-
-    if callback.from_user.id in banned_ids:
-        await callback.message.answer("faq")
-        await callback.answer()
-        return
-
-    text = get_text(
-        callback.from_user.language_code or "en",
-        "ios",
-        name=callback.from_user.first_name or "",
-    )
-
-    await callback.message.edit_text(text, reply_markup=ios_kb)
-    await send_logs(
-        message=callback.message, log="callback: looks at the instructions for ios"
-    )
-    await callback.answer()
-
-
-@router.callback_query(F.data == "windows_kb")
-async def windows_handler(callback: types.CallbackQuery):
-    banned_ids = await get_banned_users(DATA_FILE)
-
-    if callback.from_user.id in banned_ids:
-        await callback.message.answer("faq")
-        await callback.answer()
-        return
-
-    text = get_text(
-        callback.from_user.language_code or "en",
-        "windows",
-        name=callback.from_user.first_name or "",
-    )
-
-    await callback.message.edit_text(text, reply_markup=windows_kb)
-    await send_logs(
-        message=callback.message, log="callback: looks at the instructions for windows"
-    )
-    await callback.answer()
-
-
-@router.callback_query(F.data == "macos_kb")
-async def macos_handler(callback: types.CallbackQuery):
-    banned_ids = await get_banned_users(DATA_FILE)
-
-    if callback.from_user.id in banned_ids:
-        await callback.message.answer("faq")
-        await callback.answer()
-        return
-
-    text = get_text(
-        callback.from_user.language_code or "en",
-        "macos",
-        name=callback.from_user.first_name or "",
-    )
-
-    await callback.message.edit_text(text, reply_markup=macos_kb)
-    await send_logs(
-        message=callback.message, log="callback: looks at the instructions for macos"
-    )
-    await callback.answer()
-
-
-@router.callback_query(F.data == "linux_kb")
-async def linux_handler(callback: types.CallbackQuery):
-    banned_ids = await get_banned_users(DATA_FILE)
-
-    if callback.from_user.id in banned_ids:
-        await callback.message.answer("faq")
-        await callback.answer()
-        return
-
-    text = get_text(
-        callback.from_user.language_code or "en",
-        "linux",
-        name=callback.from_user.first_name or "",
-    )
-
-    await callback.message.edit_text(text, reply_markup=linux_kb)
-    await send_logs(
-        message=callback.message, log="callback: looks at the instructions for linux"
-    )
+    # 26-09-26: раньше edit_text шёл без reply_markup -> после «Домой» кнопки
+    # исчезали. Теперь меню всегда с клавиатурой.
+    reply_markup = main_menu_kb().as_markup()
+    try:
+        await callback.message.edit_text(start_text, reply_markup=reply_markup, parse_mode="HTML")
+    except Exception:
+        await callback.message.answer(start_text, reply_markup=reply_markup, parse_mode="HTML")
+    await send_logs(message=callback.message, log="callback: main menu")
     await callback.answer()

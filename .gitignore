@@ -1,7 +1,11 @@
+venv/
 __pycache__/
 *.pyc
-bot.log
+logs/
+data/*.db
+data/*.db-*
 .env
-data.json
-config.py
-й
+*.bak*
+*.pre_*
+*.log
+/root/

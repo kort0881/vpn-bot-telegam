@@ -74,7 +74,7 @@ async def write_banned_users(
         return True
     except Exception:
         return False
-# ===== Лимиты ключей на пользователя =====
+# ===== Лимиты доступов на пользователя =====
 
 async def get_user_limits(filepath: str = DATA_FILE) -> dict:
     try:
@@ -279,4 +279,17 @@ async def write_users(users: list[int], filepath: str = DATA_FILE) -> bool:
         return True
     except Exception:
         return False
+
+
+PROXY_SOURCES = [
+    "./proxies/elite.txt",
+    "./proxies/good.txt", 
+    "./proxies/premium.txt"
+]
+
+PROXY_FILES = [
+    "./proxies/elite.txt",
+    "./proxies/good.txt", 
+    "./proxies/premium.txt"
+]
 
