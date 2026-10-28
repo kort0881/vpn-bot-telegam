@@ -340,7 +340,7 @@ class PanelSession:
                 sni = dest.split(":")[0] if dest else (r.get("serverNames") or [host])[0]
                 link = (
                     f"vless://{client_uuid}@{host}:{port}?encryption=none"
-                    f"&flow=xtls-rprx-vision&fp=firefox"
+                    f"&fp=firefox"
                     f"&pbk={r['settings']['publicKey']}&security=reality"
                     f"&sid={(r.get('shortIds') or [''])[0]}&sni={sni}"
                     f"&spx={urllib.parse.quote((r.get('settings') or {}).get('spiderX') or '/')}"
@@ -364,7 +364,9 @@ class PanelSession:
                 tls = ss.get("tlsSettings") or {}
                 ws_sec = (sec or "none").lower()
                 if ws_sec in ("tls", "reality"):
-                    addr = host
+                    # вход для ws+tls живёт на хосте из wsSettings (cdn.dostupnety.website),
+                    # а не на "голом" домене: там другой сертификат и другой вход
+                    addr = (w.get("host") or host).split(",")[0].strip()
                     extra = (
                         f"&alpn=h2%2Chttp%2F1.1&fp=firefox"
                         f"&security=tls&sni={tls.get('serverName') or host}"
@@ -383,6 +385,19 @@ class PanelSession:
             else:
                 continue
             links.append(f"{link}#{remark}")
+
+        # МОБИЛЬНЫЙ ПРОФИЛЬ: дубль TLS/reality-ссылок с uTLS=safari.
+        # На Билайне/МТС chrome-отпечаток палится, safari проходит (проверено сообществом 27.10).
+        mobile = []
+        for _l in links:
+            if "security=tls" in _l or "security=reality" in _l:
+                _m = re.sub(r"fp=(?:chrome|firefox)", "fp=safari", _l)
+                if _m == _l:
+                    _m = _l + "&fp=safari"
+                _base, _, _tag = _m.partition("#")
+                _tag = (_tag or "proxy").replace(" ", "%20")
+                mobile.append("%s#%s%%20(мобильный%%2C%%20safari)" % (_base, _tag))
+        links = links + mobile
         return links
 
     async def update_client(
@@ -447,7 +462,7 @@ class PanelSession:
             "totalGB": total_bytes if total_bytes is not None else (rec.get("totalGB") or 0),
             "expiryTime": expiry_time if expiry_time is not None else (rec.get("expiryTime") or 0),
             "enable": enable,
-            "tgId": rec.get("tgId") or 0,
+            "tgId": int(rec.get("tgId") or 0),
             "comment": rec.get("comment") or "",
             "reset": 0,
         }

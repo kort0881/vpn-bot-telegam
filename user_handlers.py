@@ -183,6 +183,7 @@ def keys_kb() -> InlineKeyboardBuilder:
     builder.button(text="📖 Как подключить", callback_data="help")
     builder.button(text="💵 СКИНУТЬ НА ЧАЙ", callback_data="donate")
     builder.button(text="🛡 TrustTunnel", callback_data="tt_key")
+    builder.button(text="🛡 AmneziaWG", callback_data="awg_key")
     builder.button(text="🏠 В меню", callback_data="main_menu")
     builder.adjust(1)
     return builder
@@ -523,6 +524,7 @@ async def start_cmd(message: types.Message):
     builder.button(text="💳 ПОДДЕРЖАТЬ ПРОЕКТ", url=DONATE_URL)
     builder.button(text="🔷 Selectel 3 ТБ", callback_data="sel_key")
     builder.button(text="🛡 TrustTunnel", callback_data="tt_key")
+    builder.button(text="🛡 AmneziaWG", callback_data="awg_key")
     builder.adjust(1)
 
     await message.answer(

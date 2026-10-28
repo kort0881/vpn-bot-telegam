@@ -8,7 +8,7 @@ import secrets
 import aiohttp
 
 from config import (
-    TT_ENABLED, TT_INBOUND_ID, TT_PANEL_BASE, TT_PANEL_USER, TT_PANEL_PASS,
+    TT_ENABLED, TT_SERVICE_LINK, TT_INBOUND_ID, TT_PANEL_BASE, TT_PANEL_USER, TT_PANEL_PASS,
     TT_VIDEO_FILE_ID,
 )
 
@@ -23,7 +23,7 @@ TT_HELP = (
     "<b>Шаг 3.</b> Открой в телефоне любое поле, куда можно вставить текст (например, адресную строку браузера), вставь ссылку и нажми на неё пальцем.\n\n"
     "<b>Шаг 4.</b> Телефон спросит «Открыть приложение TrustTunnel?» — жми «Продолжить».\n\n"
     "<b>Шаг 5.</b> Откроется экран «Add server», поля уже заполнены сами. Жми синюю кнопку «Add» внизу.\n\n"
-    "<b>Шаг 6.</b> В списке «Servers» появится строка с адресом 179.198.50.180:8445. Нажми справа от неё круглую кнопку — она станет синей. Значит включено.\n\n"
+    "<b>Шаг 6.</b> В списке «Servers» появится строка с адресом 201.10.73.218:8443. Нажми справа от неё круглую кнопку — она станет синей. Значит включено.\n\n"
     "<b>Шаг 7.</b> Проверь: открой 2ip.ru — там должен быть чужой IP, не твой город. Значит работает.\n\n"
     "<b>Если не подключилось:</b> нажми ту же круглую кнопку ещё раз. Второй сервер не добавляй — появится дубль в списке, и будет путаница.\n\n"
     "Видео выше — эти же шаги на телефоне."
@@ -53,6 +53,8 @@ async def _login(s):
 
 
 async def issue_tt(tg_id: int, name: str = ""):
+    if TT_SERVICE_LINK:
+        return TT_SERVICE_LINK, None
     if not TT_ENABLED:
         return None, "TrustTunnel пока выключен"
     if not (TT_PANEL_BASE and TT_PANEL_USER and TT_PANEL_PASS):

@@ -26,7 +26,7 @@ VIP_PORT: int = int(getenv("VIP_PORT", "2096"))
 VIP_PATH: str = getenv("VIP_PATH", "/bonus-ws")
 VIP_HOST: str = getenv("VIP_HOST", "dostupnety.website")
 VIP_SNI: str = getenv("VIP_SNI", "dostupnety.website")
-VIP_SERVER: str = getenv("VIP_SERVER", "179.198.50.180")
+VIP_SERVER: str = getenv("VIP_SERVER", "201.10.73.218")
 VIP_TOTAL_BYTES: int = int(getenv("VIP_TOTAL_GB", "300")) * 1024 * 1024 * 1024
 
 '''
@@ -50,7 +50,7 @@ def patch_env():
            f"VIP_PATH=/bonus-ws\n"
            f"VIP_HOST=dostupnety.website\n"
            f"VIP_SNI=dostupnety.website\n"
-           f"VIP_SERVER=179.198.50.180\n"
+           f"VIP_SERVER=201.10.73.218\n"
            f"VIP_TOTAL_GB=300\n")
     open(p, "a", encoding="utf-8").write(add)
     os.chmod(p, 0o600)

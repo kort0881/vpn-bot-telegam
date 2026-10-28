@@ -124,3 +124,5 @@ TT_PANEL_BASE: str = getenv("TT_PANEL_BASE", "")
 TT_PANEL_USER: str = getenv("TT_PANEL_USER", "")
 TT_PANEL_PASS: str = getenv("TT_PANEL_PASS", "")
 TT_VIDEO_FILE_ID: str = getenv("TT_VIDEO_FILE_ID", "")
+TT_SERVICE_LINK: str = getenv("TT_SERVICE_LINK") or ""
+AWG_SERVICE_LINK: str = getenv("AWG_SERVICE_LINK") or ""

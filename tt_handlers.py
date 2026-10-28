@@ -3,6 +3,7 @@ from aiogram import types, F
 from aiogram.filters import Command
 
 from user_handlers import router
+from config import AWG_SERVICE_LINK
 from tt import issue_tt, TT_HELP, TT_VIDEO_FILE_ID
 from logger import logger
 
@@ -37,3 +38,37 @@ async def tt_cmd(message: types.Message):
 async def tt_key_callback(callback: types.CallbackQuery):
     await callback.answer()
     await _send_tt(callback.message, callback.from_user.id, callback.from_user.full_name)
+
+AWG_HELP = (
+    "🛡 <b>AmneziaWG</b> — отдельное приложение и отдельный ключ.\n\n"
+    "<b>Шаг 1.</b> Нажми «📋 Скопировать ссылку» под этим сообщением — она скопируется целиком.\n\n"
+    "<b>Шаг 2.</b> Поставь приложение — Android: Play Store «AmneziaWG», "
+    "Windows: github.com/amnezia-vpn/amnezia-client/releases\n\n"
+    "<b>Шаг 3.</b> В приложении нажми «+» → «Вставить из буфера обмена» (Improt from clipboard).\n\n"
+    "<b>Шаг 4.</b> Включи и проверь на 2ip.ru — должен быть чужой IP.\n\n"
+    "Если не подключается — вернись к обычному ключу, он всегда в профиле."
+)
+
+
+async def _send_awg(target, tg_id: int, name: str = ""):
+    if not AWG_SERVICE_LINK:
+        await target.answer("⚠️ AmneziaWG сейчас недоступен — попробуй позже или используй обычный ключ.")
+        return
+    await target.answer(AWG_HELP, parse_mode="HTML", disable_web_page_preview=True)
+    kb = {"inline_keyboard": [[{"text": "📋 Скопировать ссылку",
+                                "copy_text": {"text": AWG_SERVICE_LINK}}]]}
+    try:
+        await target.answer(AWG_SERVICE_LINK, reply_markup=kb, disable_web_page_preview=True)
+    except Exception:
+        await target.answer(AWG_SERVICE_LINK, disable_web_page_preview=True)
+
+
+@router.message(Command("awg"))
+async def awg_cmd(message: types.Message):
+    await _send_awg(message, message.from_user.id, message.from_user.full_name)
+
+
+@router.callback_query(F.data == "awg_key")
+async def awg_key_callback(callback: types.CallbackQuery):
+    await callback.answer()
+    await _send_awg(callback.message, callback.from_user.id, callback.from_user.full_name)

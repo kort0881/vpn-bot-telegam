@@ -29,6 +29,7 @@ def main_menu_kb() -> InlineKeyboardBuilder:
     kb.button(text="💳 ПОДДЕРЖАТЬ ПРОЕКТ", url=DONATE_URL)
     kb.button(text="🔷 Selectel 3 ТБ", callback_data="sel_key")
     kb.button(text="🛡 TrustTunnel", callback_data="tt_key")
+    kb.button(text="🛡 AmneziaWG", callback_data="awg_key")
     kb.adjust(1)
     return kb
 
